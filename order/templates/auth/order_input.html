@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <title>ثبت سفارش خودکار</title>
+    <style>
+        body {font-family: Tahoma; background: #f8f9fa; padding: 50px;}
+        .box {max-width: 500px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);}
+        input {width: 100%; padding: 14px; margin: 12px 0; font-size: 16px; border: 1px solid #ddd; border-radius: 8px;}
+        button {width: 100%; padding: 16px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer;}
+        button:hover {background: #218838;}
+        .info {background: #e9ecef; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 14px;}
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>ثبت سفارش خودکار طلا</h2>
+
+    {% if messages %}
+        {% for msg in messages %}
+            <div style="padding:10px; margin:15px 0; border-radius:8px; color:{% if msg.tags == 'error' %}red{% else %}green{% endif %}; background:#f8d7da;">
+                {{ msg }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="info">
+        <strong>وضعیت:</strong> وارد شده ✓<br>
+        توکن فعال است. حالا مقدار و قیمت هدف را وارد کنید.
+    </div>
+
+    <form method="post">
+        {% csrf_token %}
+        <input type="number" step="0.01" name="weight" placeholder="وزن سفارش (گرم) مثال: 2.5" required>
+        <input type="number" name="cost" placeholder="قیمت هدف (تومان) مثال: 3850000" required>
+        <button type="submit">ثبت سفارش و شروع ربات</button>
+    </form>
+
+    <hr>
+    <small><a href="{% url 'login_khakpour' %}">خروج</a></small>
+</div>
+</body>
+</html>

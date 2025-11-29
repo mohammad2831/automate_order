@@ -1,0 +1,30 @@
+# automate_order_module/docker-compose.yml
+
+services:
+  web:
+    build: .
+    container_name: auto_order_bot_web
+    restart: unless-stopped
+    ports:
+      - "8002:8000"                  # پورت 8002 برای این پروژه
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=True
+      - DOCKER_ENV=1
+    networks:
+      - redis_net
+
+  # اگر بخوای سلری هم داشته باشی (اختیاری — بعداً اضافه می‌کنیم)
+  # celery:
+  #   build: .
+  #   command: celery -A automate_order_madule worker --loglevel=info
+  #   volumes:
+  #     - .:/app
+  #   networks:
+  #     - redis_net
+
+networks:
+  redis_net:
+    name: redis_backend_network
+    external: true

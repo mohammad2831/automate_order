@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <title>ارسال کد تأیید</title>
+    <style>
+        body {font-family: Tahoma; padding: 50px; background: #f4f4f4;}
+        .box {max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
+        input {width: 100%; padding: 10px; margin: 10px 0; font-size: 16px;}
+        button {width: 100%; padding: 12px; background: #007bff; color: white; border: none; cursor: pointer;}
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>ورود با شماره موبایل</h2>
+    {% if messages %}
+        {% for msg in messages %}
+            <p style="color: {% if msg.tags == 'error' %}red{% else %}green{% endif %};">{{ msg }}</p>
+        {% endfor %}
+    {% endif %}
+    <form method="post">
+        {% csrf_token %}
+        <input type="text" name="phone_number" placeholder="09123456789" maxlength="11" required>
+        <button type="submit">ارسال کد تأیید</button>
+    </form>
+</div>
+</body>
+</html>
