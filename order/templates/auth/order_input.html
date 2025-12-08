@@ -2,42 +2,143 @@
 <html dir="rtl" lang="fa">
 <head>
     <meta charset="UTF-8">
-    <title>ثبت سفارش خودکار</title>
+    <title>ثبت سفارش خودکار 📈</title>
     <style>
-        body {font-family: Tahoma; background: #f8f9fa; padding: 50px;}
-        .box {max-width: 500px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);}
-        input {width: 100%; padding: 14px; margin: 12px 0; font-size: 16px; border: 1px solid #ddd; border-radius: 8px;}
-        button {width: 100%; padding: 16px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer;}
-        button:hover {background: #218838;}
-        .info {background: #e9ecef; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 14px;}
+        /* Base Styling */
+        body {font-family: Tahoma, sans-serif; background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%); padding: 50px; color: #333;}
+        .container {max-width: 800px; margin: auto; display: flex; gap: 30px;}
+        .box {flex: 1; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); transition: transform 0.3s;}
+        .box:hover {transform: translateY(-5px);}
+        h2 {text-align: center; color: #007bff; margin-bottom: 25px; border-bottom: 2px solid #007bff; padding-bottom: 10px;}
+
+        /* Input/Button Styling */
+        input[type="number"] {width: 100%; padding: 12px; margin: 10px 0; font-size: 16px; border: 1px solid #ced4da; border-radius: 8px; box-sizing: border-box; transition: border-color 0.3s;}
+        input[type="number"]:focus {border-color: #007bff; box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);}
+        label {display: block; margin-top: 15px; font-weight: bold; color: #495057;}
+
+        .btn-submit {width: 100%; padding: 14px; background: #28a745; color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; margin-top: 20px; transition: background-color 0.3s;}
+        .btn-submit:hover {background: #218838;}
+
+        /* Info/Message Styling */
+        .info {background: #e9f7ff; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 14px; border-left: 5px solid #007bff;}
+        .message-box {padding: 10px; margin: 15px 0; border-radius: 8px; font-size: 15px;}
+        .message-success {color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb;}
+        .message-error {color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb;}
+        
+        /* Status Display */
+        .status-section {background: #fff; padding: 20px; border-radius: 12px; margin-top: 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);}
+        .status-item {display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #eee;}
+        .status-item:last-child {border-bottom: none;}
+        .status-label {font-weight: bold;}
+        .status-value.enabled {color: #28a745;}
+        .status-value.disabled {color: #dc3545;}
+
+        /* Footer */
+        .footer {text-align: center; margin-top: 30px;}
+        .footer a {color: #007bff; text-decoration: none;}
     </style>
 </head>
 <body>
-<div class="box">
-    <h2>ثبت سفارش خودکار طلا</h2>
+<div class="container">
+    <div class="box">
+        <h2>تنظیمات ربات خرید و فروش طلا</h2>
 
-    {% if messages %}
-        {% for msg in messages %}
-            <div style="padding:10px; margin:15px 0; border-radius:8px; color:{% if msg.tags == 'error' %}red{% else %}green{% endif %}; background:#f8d7da;">
-                {{ msg }}
+        {# نمایش پیام‌ها (اخطار یا موفقیت) #}
+        {% if messages %}
+            {% for msg in messages %}
+                <div class="message-box {% if 'error' in msg.tags %}message-error{% else %}message-success{% endif %}">
+                    {{ msg }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="info">
+            <strong>وضعیت ورود:</strong> وارد شده ✓<br>
+            توکن فعال است. لطفاً تنظیمات خرید و فروش را وارد کنید.
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            
+            {# --- تنظیمات خرید (Buy) --- #}
+            <div style="background:#e6f3ff; padding:15px; border-radius:10px; margin-bottom:20px; border: 1px solid #b3d9ff;">
+                <h3 style="color:#007bff; margin-top:0;">بخش خرید (Buy) 🛒</h3>
+                <label for="buy-weight">وزن سفارش (گرم) مثال: 2.5</label>
+                <input type="number" step="0.01" name="buy_weight" id="buy-weight" placeholder="وزن سفارش (گرم)" required>
+                
+                <label for="buy-cost">قیمت هدف (تومان) مثال: 3850000</label>
+                <input type="number" name="buy_cost" id="buy-cost" placeholder="قیمت هدف (تومان)" required>
+
+                <label for="buy-dedline">مهلت زمانی (ثانیه) - انقضای ربات خرید (مثال: 3600 برای ۱ ساعت)</label>
+                <input type="number" name="buy_dedline" id="buy-dedline" placeholder="مهلت زمانی (ثانیه)" value="3600" required>
             </div>
-        {% endfor %}
-    {% endif %}
 
-    <div class="info">
-        <strong>وضعیت:</strong> وارد شده ✓<br>
-        توکن فعال است. حالا مقدار و قیمت هدف را وارد کنید.
+            {# --- تنظیمات فروش (Sell) --- #}
+            <div style="background:#fff0f0; padding:15px; border-radius:10px; margin-bottom:20px; border: 1px solid #ffb3b3;">
+                <h3 style="color:#dc3545; margin-top:0;">بخش فروش (Sell) 💰</h3>
+                <label for="sell-weight">وزن سفارش (گرم) مثال: 5.0</label>
+                <input type="number" step="0.01" name="sell_weight" id="sell-weight" placeholder="وزن سفارش (گرم)" required>
+
+                <label for="sell-cost">قیمت هدف (تومان) مثال: 4000000</label>
+                <input type="number" name="sell_cost" id="sell-cost" placeholder="قیمت هدف (تومان)" required>
+                
+                <label for="sell-dedline">مهلت زمانی (ثانیه) - انقضای ربات فروش (مثال: 3600 برای ۱ ساعت)</label>
+                <input type="number" name="sell_dedline" id="sell-dedline" placeholder="مهلت زمانی (ثانیه)" value="3600" required>
+            </div>
+
+            <button type="submit" class="btn-submit">ثبت سفارش و شروع ربات</button>
+        </form>
     </div>
+    
+    {# نمایش وضعیت فعلی #}
+    <div class="box status-section">
+        <h2 style="color:#495057; border-bottom: 2px solid #495057;">وضعیت فعلی ربات 📊</h2>
+        
+        <div class="status-item">
+            <span class="status-label">قیمت جاری بازار:</span>
+            <span class="status-value">{{ status.current_price|default:"در حال دریافت..." }} تومان</span>
+        </div>
+        
+        <div class="status-item">
+            <span class="status-label">وضعیت ربات خرید:</span>
+            <span class="status-value {% if status.enabled_buy %}enabled{% else %}disabled{% endif %}">
+                {% if status.enabled_buy %}فعال (تا {{ status.buy_exp_time|default:"نا مشخص" }}){% else %}غیر فعال{% endif %}
+            </span>
+        </div>
 
-    <form method="post">
-        {% csrf_token %}
-        <input type="number" step="0.01" name="weight" placeholder="وزن سفارش (گرم) مثال: 2.5" required>
-        <input type="number" name="cost" placeholder="قیمت هدف (تومان) مثال: 3850000" required>
-        <button type="submit">ثبت سفارش و شروع ربات</button>
-    </form>
+        <div class="status-item">
+            <span class="status-label">وزن هدف خرید:</span>
+            <span class="status-value">{{ status.buy_weight|default:"-" }} گرم</span>
+        </div>
+        
+        <div class="status-item">
+            <span class="status-label">قیمت هدف خرید:</span>
+            <span class="status-value">{{ status.target_price_buy|default:"-" }} تومان</span>
+        </div>
+        
+        <div style="margin-top: 15px;"></div>
+        
+        <div class="status-item">
+            <span class="status-label">وضعیت ربات فروش:</span>
+            <span class="status-value {% if status.enabled_sell %}enabled{% else %}disabled{% endif %}">
+                {% if status.enabled_sell %}فعال (تا {{ status.sell_exp_time|default:"نا مشخص" }}){% else %}غیر فعال{% endif %}
+            </span>
+        </div>
 
-    <hr>
-    <small><a href="{% url 'login_khakpour' %}">خروج</a></small>
+        <div class="status-item">
+            <span class="status-label">وزن هدف فروش:</span>
+            <span class="status-value">{{ status.sell_weight|default:"-" }} گرم</span>
+        </div>
+        
+        <div class="status-item">
+            <span class="status-label">قیمت هدف فروش:</span>
+            <span class="status-value">{{ status.target_price_sell|default:"-" }} تومان</span>
+        </div>
+
+    </div>
+</div>
+<div class="footer">
+    <small><a href="{% url 'login_khakpour' %}">خروج از حساب</a></small>
 </div>
 </body>
 </html>

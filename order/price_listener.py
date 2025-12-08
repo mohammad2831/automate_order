@@ -21,11 +21,26 @@ def start_monitor_once():
             _monitor_thread.start()
             log.info("ناظر سفارش خودکار فعال شد — فقط یک نمونه در حال اجراست")
 
+
+
+
+
+
+
+
+
 # کلیدها
-PRICE_KEY = "abshode-kart-buy"
-TARGET_KEY = "auto_order:target_price"
-WEIGHT_KEY = "auto_order:weight"
-ENABLED_KEY = "auto_order:enabled"
+PRICE_KEY = "naghd-farda-buy"
+
+TARGET_KEY_Buy = "auto_order:target_price_buy"
+TARGET_KEY_SELL = "auto_order:target_price_sell"
+
+WEIGHT_KEY_BUY = "auto_order:buy_weight"
+WEIGHT_KEY_SELL = "auto_order:sell_weight"
+
+ENABLED_KEY_BUY = "auto_order:enabled_buy"
+ENABLED_KEY_SELL = "auto_order:enabled_sell"
+
 TOKEN_KEY = "auto_order:access_token"
 
 # اتصال ردیس
@@ -34,92 +49,127 @@ redis_cache = redis.Redis(host='redis-cache', port=6379, db=0, decode_responses=
 
 
 def price_watcher():
-    log.info("شروع نظارت لحظه‌ای بر قیمت و سفارش خودکار...")
+    log.info("ناظر سفارش خودکار شروع شد — پشتیبانی از خرید و فروش همزمان")
+
+    global _order_sent_buy, _order_sent_sell
 
     while True:
         try:
             current_time = datetime.now().strftime("%H:%M:%S")
+            # reset_daily_flags()  # اگر می‌خوای هر روز ریست بشه، این خط رو فعال کن
 
-            # 1. وضعیت فعال بودن ربات
-            enabled = redis_cache.get(ENABLED_KEY) == "true"
-            token_exists = bool(redis_cache.get(TOKEN_KEY))
-
-            # 2. وزن و قیمت هدف
-            weight_raw = redis_cache.get(WEIGHT_KEY)
-            target_raw = redis_cache.get(TARGET_KEY)
-
-            # 3. قیمت لحظه‌ای
+            # قیمت لحظه‌ای بازار
             price_raw = redis_price.get(PRICE_KEY)
             if not price_raw:
-                log.info(f"[{current_time}] قیمت لحظه‌ای هنوز در ردیس نیست...")
+                log.debug(f"[{current_time}] قیمت لحظه‌ای موجود نیست.")
                 time.sleep(3)
                 continue
 
             try:
                 current_price = int(float(str(price_raw).replace(",", "").strip()))
             except:
-                current_price = 0
+                log.error(f"تبدیل قیمت ناموفق: {price_raw}")
+                time.sleep(3)
+                continue
 
-            # لاگ لحظه‌ای — همیشه نمایش داده میشه
-            if enabled and weight_raw and target_raw and token_exists:
+            # توکن لاگین
+            token_exists = bool(redis_cache.get(TOKEN_KEY))
+
+            # وضعیت BUY
+            enabled_buy = redis_cache.get(ENABLED_KEY_BUY) == "true"
+            target_buy_raw = redis_cache.get(TARGET_KEY_BUY)
+            weight_buy_raw = redis_cache.get(WEIGHT_KEY_BUY)
+
+            # وضعیت SELL
+            enabled_sell = redis_cache.get(ENABLED_KEY_SELL) == "true"
+            target_sell_raw = redis_cache.get(TARGET_KEY_SELL)
+            weight_sell_raw = redis_cache.get(WEIGHT_KEY_SELL)
+
+            # پردازش BUY
+            if enabled_buy and token_exists and target_buy_raw and weight_buy_raw:
                 try:
-                    weight = float(weight_raw)
-                    target_price = int(float(target_raw))
-                    diff = current_price - target_price
+                    target_price = int(float(target_buy_raw))
+                    weight = float(weight_buy_raw)
 
-                    status = "فعال - در انتظار رسیدن قیمت"
-                    if current_price > target_price:
-                        status = "قیمت هدف رسید! در حال ارسال سفارش..."
-
-                    log.info(
-                        f"[{current_time}] ربات: فعال | "
-                        f"وزن: {weight:.6f} گرم | "
-                        f"هدف: {target_price:,} | "
-                        f"قیمت فعلی: {current_price:,} | "
-                        f"تفاوت: {diff:+,} | "
-                        f"وضعیت: {status}"
-                    )
-
-                    # فقط یک بار ارسال کن
-                    if current_price > target_price:
-                        log.warning("در حال ارسال سفارش خودکار...")
-                        success, result = send_auto_order(current_price)
+                    if current_price <= target_price and not _order_sent_buy:
+                        log.info("قیمت هدف خرید رسید! در حال ارسال سفارش خرید...")
+                        success, result = send_auto_order(current_price, side="buy", weight=weight)
 
                         if success:
-                            log.info("سفارش با موفقیت ارسال شد!")
-                            for _ in range(50):
+                            log.info("سفارش خرید با موفقیت ارسال شد!")
+                            with _order_sent_lock:
+                                _order_sent_buy = True
+                            for _ in range(30):
                                 print("\a", end="", flush=True)
-                                time.sleep(0.08)
+                                time.sleep(0.1)
                         else:
-                            log.error(f"سفارش ارسال نشد: {result}")
-
+                            log.error(f"خطا در ارسال سفارش خرید: {result}")
+                    else:
+                        status = "در انتظار" if current_price > target_price else "سفارش قبلاً ارسال شده"
+                        log.info(
+                            f"[{current_time}] خرید | هدف: {target_price:,} | "
+                            f"فعلی: {current_price:,} | وزن: {weight:.6f} گرم | وضعیت: {status}"
+                        )
                 except Exception as e:
-                    log.error(f"خطا در پردازش مقادیر: {e}")
-
+                    log.error(f"خطا در پردازش خرید: {e}")
             else:
-                # ربات غیرفعاله یا چیزی کمه
                 missing = []
-                if not enabled:
-                    missing.append("ربات غیرفعال")
-                if not token_exists:
-                    missing.append("توکن لاگین")
-                if not weight_raw:
-                    missing.append("وزن")
-                if not target_raw:
-                    missing.append("قیمت هدف")
+                if not enabled_buy: missing.append("غیرفعال")
+                if not token_exists: missing.append("توکن")
+                if not target_buy_raw: missing.append("هدف")
+                if not weight_buy_raw: missing.append("وزن")
+                log.info(f"[{current_time}] خرید غیرفعال | دلیل: {', '.join(missing)}")
 
-                log.info(
-                    f"[{current_time}] ربات غیرفعال | "
-                    f"قیمت فعلی: {current_price:,} | "
-                    f"در انتظار: {', '.join(missing)}"
-                )
+            # پردازش SELL
+            if enabled_sell and token_exists and target_sell_raw and weight_sell_raw:
+                try:
+                    target_price = int(float(target_sell_raw))
+                    weight = float(weight_sell_raw)
 
-            time.sleep(2.5)  # هر ۲.۵ ثانیه یه بار چک کنه — بهینه و خوانا
+                    if current_price >= target_price and not _order_sent_sell:
+                        log.info("قیمت هدف فروش رسید! در حال ارسال سفارش فروش...")
+                        success, result = send_auto_order(current_price, side="sell", weight=weight)
+
+                        if success:
+                            log.info("سفارش فروش با موفقیت ارسال شد!")
+                            with _order_sent_lock:
+                                _order_sent_sell = True
+                            for _ in range(30):
+                                print("\a", end="", flush=True)
+                                time.sleep(0.1)
+                        else:
+                            log.error(f"خطا در ارسال سفارش فروش: {result}")
+                    else:
+                        status = "در انتظار" if current_price < target_price else "سفارش قبلاً ارسال شده"
+                        log.info(
+                            f"[{current_time}] فروش | هدف: {target_price:,} | "
+                            f"فعلی: {current_price:,} | وزن: {weight:.6f} گرم | وضعیت: {status}"
+                        )
+                except Exception as e:
+                    log.error(f"خطا در پردازش فروش: {e}")
+            else:
+                missing = []
+                if not enabled_sell: missing.append("غیرفعال")
+                if not token_exists: missing.append("توکن")
+                if not target_sell_raw: missing.append("هدف")
+                if not weight_sell_raw: missing.append("وزن")
+                log.info(f"[{current_time}] فروش غیرفعال | دلیل: {', '.join(missing)}")
+
+            time.sleep(2.5)
 
         except Exception as e:
-            log.error(f"خطای غیرمنتظره در ناظر: {e}")
+            log.critical(f"خطای بحرانی در ناظر: {e}")
             time.sleep(10)
 
 
-# شروع خودکار
+def start_monitor_once():
+    global _monitor_thread
+    with _monitor_lock:
+        if _monitor_thread is None or not _monitor_thread.is_alive():
+            _monitor_thread = threading.Thread(target=price_watcher, daemon=True)
+            _monitor_thread.start()
+            log.info("ناظر سفارش خودکار (خرید + فروش) فعال شد — تنها یک نمونه در حال اجراست")
+
+
+# شروع خودکار هنگام ایمپورت
 start_monitor_once()

@@ -3,7 +3,8 @@ from django.contrib import messages
 from .auth_utils import send_otp_request, get_token_request
 from django.core.cache import cache
 import redis
-
+import time
+from datetime import datetime, timedelta
 
 redis_cache = redis.Redis(
     host='redis-cache',
@@ -56,8 +57,6 @@ def verify_otp_khakpour(request):
     return render(request, 'auth/verify_otp.html')
 
 
-
-
 def order_input_view(request):
     # چک لاگین
     if not request.session.get('khakpour_token'):
@@ -66,34 +65,99 @@ def order_input_view(request):
 
     if request.method == "POST":
         try:
-            weight = float(request.POST.get('weight', 0))
-            cost = float(request.POST.get('cost', 0))
+            
+            # دریافت وضعیت فعال‌سازی
+            enable_buy = 'enable_buy' in request.POST
+            enable_sell = 'enable_sell' in request.POST
+            
+            # --- مدیریت ربات خرید ---
+            if enable_buy:
+                buy_weight = float(request.POST.get('buy_weight', 0))
+                buy_cost = float(request.POST.get('buy_cost', 0))
+                buy_dedline = int(request.POST.get('buy_dedline', 0))
+                
+                if buy_weight <= 0 or buy_cost <= 0 or buy_dedline <= 0:
+                    raise ValueError("وزن، قیمت یا مهلت زمانی خرید باید بزرگتر از صفر باشند")
 
-            if weight <= 0 or cost <= 0:
-                raise ValueError("وزن و قیمت باید بزرگتر از صفر باشند")
+                target_price_buy = int(buy_cost)
+                
+                # ذخیره با زمان انقضا (TTL)
+                redis_cache.set("auto_order:buy_weight", buy_weight, ex=buy_dedline)
+                redis_cache.set("auto_order:target_price_buy", target_price_buy, ex=buy_dedline)
+                redis_cache.set("auto_order:enabled_buy", "true", ex=buy_dedline)
+                buy_message = f"خرید: {buy_weight:,.6f} گرم @ {target_price_buy:,} تومان فعال شد."
+            else:
+                # اگر غیرفعال شد، کلیدهای مربوطه را حذف کن
+                redis_cache.delete("auto_order:buy_weight", "auto_order:target_price_buy", "auto_order:enabled_buy")
+                buy_message = "ربات خرید غیرفعال شد."
 
-            target_price = int(cost)
+            
+            # --- مدیریت ربات فروش ---
+            if enable_sell:
+                sell_weight = float(request.POST.get('sell_weight', 0))
+                sell_cost = float(request.POST.get('sell_cost', 0))
+                sell_dedline = int(request.POST.get('sell_dedline', 0)) 
+                
+                if sell_weight <= 0 or sell_cost <= 0 or sell_dedline <= 0:
+                    raise ValueError("وزن، قیمت یا مهلت زمانی فروش باید بزرگتر از صفر باشند")
+                    
+                target_price_sell = int(sell_cost)
+                
+                # ذخیره با زمان انقضا (TTL)
+                redis_cache.set("auto_order:sell_weight", sell_weight, ex=sell_dedline)
+                redis_cache.set("auto_order:target_price_sell", target_price_sell, ex=sell_dedline)
+                redis_cache.set("auto_order:enabled_sell", "true", ex=sell_dedline)
+                sell_message = f"فروش: {sell_weight:,.6f} گرم @ {target_price_sell:,} تومان فعال شد."
+            else:
+                 # اگر غیرفعال شد، کلیدهای مربوطه را حذف کن
+                redis_cache.delete("auto_order:sell_weight", "auto_order:target_price_sell", "auto_order:enabled_sell")
+                sell_message = "ربات فروش غیرفعال شد."
 
-            # ذخیره مستقیم در redis-cache — نه cache!
-            redis_cache.set("auto_order:weight", weight, ex=None)
-            redis_cache.set("auto_order:target_price", target_price, ex=None)
-            redis_cache.set("auto_order:enabled", "true", ex=None)
 
-            messages.success(
-                request,
-                f"ربات فعال شد! وزن: {weight:,.6f} گرم | هدف: {target_price:,} تومان"
-            )
+            messages.success(request, f"تنظیمات با موفقیت ثبت شد. | {buy_message} | {sell_message}")
             return redirect('order_input')
 
+        except ValueError as ve:
+            messages.error(request, f"خطا در داده ورودی: {ve}")
         except Exception as e:
-            messages.error(request, "لطفاً وزن و قیمت معتبر وارد کنید")
+            messages.error(request, f"خطای عمومی: لطفاً داده‌های معتبر وارد کنید. ({e})")
 
-    # نمایش وضعیت فعلی (از redis-cache واقعی)
+    # 4. نمایش وضعیت فعلی (GET Request)
+    
+    # ... بقیه کد مربوط به format_ttl و بخش GET request را از ویو قبلی کپی کنید.
+    # به ویژه بخش:
+    # def format_ttl(ttl): ...
+    # buy_ttl = redis_cache.ttl("auto_order:enabled_buy")
+    # ...
+    
+    # فقط مطمئن شوید که بخش دریافت وضعیت (status) برای هر دو عملیات کامل است:
+    buy_ttl = redis_cache.ttl("auto_order:enabled_buy")
+    sell_ttl = redis_cache.ttl("auto_order:enabled_sell")
+
+    def format_ttl(ttl):
+        if ttl is None or ttl < 0:
+            return None
+        exp_time = datetime.now() + timedelta(seconds=ttl)
+        return exp_time.strftime("%H:%M:%S")
+        
     status = {
-        "weight": redis_cache.get("auto_order:weight") or "",
-        "target_price": redis_cache.get("auto_order:target_price") or "",
-        "enabled": redis_cache.get("auto_order:enabled") == "true",
+        "buy_weight": redis_cache.get("auto_order:buy_weight") or "",
+        "target_price_buy": redis_cache.get("auto_order:target_price_buy") or "",
+        # بررسی می‌کنیم که آیا کلید enabled وجود دارد و True است.
+        "enabled_buy": redis_cache.get("auto_order:enabled_buy") == b"true" and buy_ttl > 0, 
+        "buy_exp_time": format_ttl(buy_ttl),
+        
+        "sell_weight": redis_cache.get("auto_order:sell_weight") or "",
+        "target_price_sell": redis_cache.get("auto_order:target_price_sell") or "",
+        "enabled_sell": redis_cache.get("auto_order:enabled_sell") == b"true" and sell_ttl > 0,
+        "sell_exp_time": format_ttl(sell_ttl),
+
         "current_price": redis_cache.get("abshode-kart-buy"),
     }
+    
+    # تبدیل بایت به رشته برای نمایش در قالب
+    for key in status:
+        if isinstance(status[key], bytes):
+            status[key] = status[key].decode('utf-8')
 
     return render(request, 'auth/order_input.html', {"status": status})

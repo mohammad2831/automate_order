@@ -2,26 +2,60 @@
 <html dir="rtl" lang="fa">
 <head>
     <meta charset="UTF-8">
-    <title>ارسال کد تأیید</title>
+    <title>ورود به پنل کاربری 🔑</title>
     <style>
-        body {font-family: Tahoma; padding: 50px; background: #f4f4f4;}
-        .box {max-width: 400px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
-        input {width: 100%; padding: 10px; margin: 10px 0; font-size: 16px;}
-        button {width: 100%; padding: 12px; background: #007bff; color: white; border: none; cursor: pointer;}
+        /* Base Styling - Same across all pages */
+        body {font-family: Tahoma, sans-serif; background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%); padding: 50px; color: #333;}
+        .box {max-width: 450px; margin: auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);}
+        h2 {text-align: center; color: #007bff; margin-bottom: 25px; border-bottom: 2px solid #007bff; padding-bottom: 10px;}
+        
+        /* Input/Button Styling */
+        input[type="text"] {width: 100%; padding: 14px; margin: 20px 0; font-size: 18px; text-align: center; border: 1px solid #ced4da; border-radius: 8px; box-sizing: border-box; transition: border-color 0.3s;}
+        input[type="text"]:focus {border-color: #007bff; box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);}
+        
+        /* Primary button color - used for login/verification action */
+        .btn-submit {width: 100%; padding: 16px; background: #007bff; /* رنگ آبی */ color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; margin-top: 10px; transition: background-color 0.3s;}
+        .btn-submit:hover {background: #0056b3;}
+
+        /* Message Styling - Same across all pages */
+        .message-box {padding: 15px; margin: 15px 0; border-radius: 8px; font-size: 15px;}
+        .message-success {color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb;}
+        .message-error {color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb;}
+        
+        .info {background: #e9f7ff; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 14px; border-left: 5px solid #007bff; text-align: center;}
     </style>
 </head>
 <body>
 <div class="box">
-    <h2>ورود با شماره موبایل</h2>
+    <h2>🔑 ورود به پنل کاربری</h2>
+    
+    {# نمایش پیام‌ها (اخطار یا موفقیت) #}
     {% if messages %}
         {% for msg in messages %}
-            <p style="color: {% if msg.tags == 'error' %}red{% else %}green{% endif %};">{{ msg }}</p>
+            <div class="message-box {% if 'error' in msg.tags %}message-error{% else %}message-success{% endif %}">
+                {{ msg }}
+            </div>
         {% endfor %}
     {% endif %}
+
+    <div class="info">
+        لطفاً شماره موبایل خود را وارد نمایید تا کد تأیید برای شما ارسال شود.
+    </div>
+
     <form method="post">
         {% csrf_token %}
-        <input type="text" name="phone_number" placeholder="09123456789" maxlength="11" required>
-        <button type="submit">ارسال کد تأیید</button>
+        <input 
+            type="text" 
+            name="phone_number" 
+            placeholder="مثال: 09123456789" 
+            maxlength="11" 
+            pattern="09[0-9]{9}" 
+            title="لطفاً یک شماره موبایل معتبر 11 رقمی وارد کنید (شروع با 09)"
+            required
+            autofocus
+            style="direction: ltr;"
+        >
+        <button type="submit" class="btn-submit">ارسال کد تأیید</button>
     </form>
 </div>
 </body>
