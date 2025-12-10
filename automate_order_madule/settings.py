@@ -8,9 +8,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 SECURE_SSL_REDIRECT = False
-SECURE_PROXY_SSL_HEADER = None  # لازم نیست
+SECURE_PROXY_SSL_HEADER = None
 USE_X_FORWARDED_HOST = False
-
+CSRF_COOKIE_HTTPONLY = False  # اختیاری، ولی بهتره باشه
 # ───── امنیت و سرور ─────
 SECRET_KEY = os.getenv(
     'DJANGO_SECRET_KEY',
