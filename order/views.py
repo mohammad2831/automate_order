@@ -64,7 +64,7 @@ def login_view(request):
                 if user.is_active:
                     login(request, user)
                     messages.success(request, 'خوش آمدید!')
-                    return redirect('/order/dashboard/')
+                    return redirect('/order/dashbord/')
                 else:
                     messages.error(request, 'حساب شما غیرفعال است. با پشتیبانی تماس بگیرید.')
             else:
