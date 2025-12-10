@@ -1,31 +1,38 @@
+# settings.py
+import os
 from pathlib import Path
-import socket
 import redis
+
+# ───── مسیرها ─────
 BASE_DIR = Path(__file__).resolve().parent.parent
-STATIC_URL = '/static/'
-LOGIN_URL = '/login/'
-SECRET_KEY = 'django-insecure-nl)6!suh1tuyi5vy^g$8pzswkwkkcsio#_t1&nm2pcgxkgq6^)'
-DEBUG = True
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-ALLOWED_HOSTS = ['app-rxg.ir', "www.app-rxg.ir", 'localhost','127.0.0.1','185.10.75.158', '94.182.155.166']
 
+# ───── امنیت و سرور ─────
+SECRET_KEY = os.getenv(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-change-this-in-production-please-very-long-random-string'
+)
 
-# ✅ مدل کاربر سفارشی
-AUTH_USER_MODEL = 'order.User'
+# در سرور حتماً False باشه!
+DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 
-# ✅ اضافه کنید - برای احراز هویت
-AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
+ALLOWED_HOSTS = [
+    'app-rxg.ir',
+    'www.app-rxg.ir',
+    'localhost',
+    '127.0.0.1',
+    '185.10.75.158',
+    '94.182.155.166',
+    '[::1]',  # برای IPv6 لوکال
 ]
 
+# دامنه‌های معتبر برای CSRF (در سرور حتماً تنظیم کن)
+CSRF_TRUSTED_ORIGINS = [
+    "https://app-rxg.ir",
+    "https://www.app-rxg.ir",
+    "http://localhost:8000",  # فقط در توسعه
+]
 
-
-LOGIN_URL = '/login/'
-#LOGIN_REDIRECT_URL = '/'  # ✅ اضافه کنید
-
-
-
-
+# ───── اپلیکیشن‌ها ─────
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -34,23 +41,26 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-
+    # اپ شما
     'order.apps.OrderConfig',
-
 ]
 
+# ───── میدلورها — ترتیب خیلی مهم است! ─────
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',        # حتماً فعال!
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# ───── URL و WSGI ─────
 ROOT_URLCONF = 'automate_order_madule.urls'
+WSGI_APPLICATION = 'automate_order_madule.wsgi.application'
 
+# ───── تمپلیت‌ها ─────
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -66,13 +76,7 @@ TEMPLATES = [
     },
 ]
 
-
-
-
-
-WSGI_APPLICATION = 'automate_order_madule.wsgi.application'
-
-
+# ───── دیتابیس ─────
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -80,46 +84,56 @@ DATABASES = {
     }
 }
 
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
-]
-
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
-USE_I18N = True
-
-USE_TZ = True
-
-
-STATIC_URL = 'static/'
-
-
-
-
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-
-
-
-
+# ───── مدل کاربر سفارشی ─────
 AUTH_USER_MODEL = 'order.User'
 
+# ───── اعتبارسنجی رمز عبور ─────
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
 
+# ───── زبان و زمان ─────
+LANGUAGE_CODE = 'fa-ir'
+TIME_ZONE = 'Asia/Tehran'
+USE_I18N = True
+USE_TZ = True
+
+# ───── فایل‌های استاتیک ─────
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# ───── لاگین و ریدایرکت ─────
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/order_input/'  # بعد از لاگین بره داشبورد
+LOGOUT_REDIRECT_URL = '/login/'
+
+# ───── امنیت کوکی‌ها و CSRF (برای HTTPS و داکر) ─────
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = False  # برای جاوااسکریپت نیازه
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# ───── کش Redis (django-redis) ─────
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://redis-cache:6379/0",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            " CONNECTION_POOL_KWARGS": {"max_connections": 20},
+        },
+        "KEY_PREFIX": "autoorder",
+    }
+}
+
+# ───── اتصال مستقیم به Redis (برای price_listener و ...) ─────
 REDIS_PRICE = redis.Redis(
     host='redis-price',
     port=6379,
@@ -130,21 +144,49 @@ REDIS_PRICE = redis.Redis(
     health_check_interval=30,
 )
 
-# چنل قیمت — حتماً با دو پروژه دیگه یکسان باشه!
+REDIS_CACHE = redis.Redis(
+    host='redis-cache',
+    port=6379,
+    db=0,
+    decode_responses=True,
+    socket_keepalive=True,
+    retry_on_timeout=True,
+)
+
+# ───── کانال قیمت زنده (Pub/Sub) ─────
 CHANNEL_PRICE_LIVE = "prices:livedata"
 
-# --- کش (اختیاری — برای ذخیره سفارشات موقت، وضعیت و ...) ---
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://redis-cache:6379/0",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+# ───── کلید توکن خاکپور ─────
+KHAKPOUR_TOKEN_CACHE_KEY = "auto_order:access_token"
+
+# ───── تنظیمات لاگ (اختیاری — خیلی حرفه‌ای) ─────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
         },
-        "KEY_PREFIX": "autoorder",
-    }
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'AUTO_ORDER': {
+            'level': 'INFO',
+            'handlers': ['console'],
+            'propagate': False,
+        },
+    },
 }
 
-# --- STATIC (برای رفع خطای قبلی) ---
-STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+# ───── تنظیمات نهایی ─────
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
