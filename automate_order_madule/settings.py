@@ -5,11 +5,11 @@ import redis
 
 # ───── مسیرها ─────
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-CSRF_COOKIE_SECURE = False        # حتماً False باشه (چون HTTP هستی)
-SESSION_COOKIE_SECURE = False      # حتماً False
-SECURE_SSL_REDIRECT = False   
-
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+SECURE_SSL_REDIRECT = False
+SECURE_PROXY_SSL_HEADER = None  # لازم نیست
+USE_X_FORWARDED_HOST = False
 
 # ───── امنیت و سرور ─────
 SECRET_KEY = os.getenv(
