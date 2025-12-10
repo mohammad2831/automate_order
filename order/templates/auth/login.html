@@ -1,62 +1,93 @@
-<!DOCTYPE html>
-<html dir="rtl" lang="fa">
+{% load static %}
+<!doctype html>
+<html lang="fa" dir="rtl" class="h-full">
 <head>
-    <meta charset="UTF-8">
-    <title>ورود به پنل کاربری 🔑</title>
-    <style>
-        /* Base Styling - Same across all pages */
-        body {font-family: Tahoma, sans-serif; background: linear-gradient(135deg, #f0f4f8 0%, #d9e2ec 100%); padding: 50px; color: #333;}
-        .box {max-width: 450px; margin: auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);}
-        h2 {text-align: center; color: #007bff; margin-bottom: 25px; border-bottom: 2px solid #007bff; padding-bottom: 10px;}
-        
-        /* Input/Button Styling */
-        input[type="text"] {width: 100%; padding: 14px; margin: 20px 0; font-size: 18px; text-align: center; border: 1px solid #ced4da; border-radius: 8px; box-sizing: border-box; transition: border-color 0.3s;}
-        input[type="text"]:focus {border-color: #007bff; box-shadow: 0 0 5px rgba(0, 123, 255, 0.3);}
-        
-        /* Primary button color - used for login/verification action */
-        .btn-submit {width: 100%; padding: 16px; background: #007bff; /* رنگ آبی */ color: white; border: none; border-radius: 8px; font-size: 18px; cursor: pointer; margin-top: 10px; transition: background-color 0.3s;}
-        .btn-submit:hover {background: #0056b3;}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ورود به سیستم</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 
-        /* Message Styling - Same across all pages */
-        .message-box {padding: 15px; margin: 15px 0; border-radius: 8px; font-size: 15px;}
-        .message-success {color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb;}
-        .message-error {color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb;}
-        
-        .info {background: #e9f7ff; padding: 15px; border-radius: 8px; margin: 15px 0; font-size: 14px; border-left: 5px solid #007bff; text-align: center;}
-    </style>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap');
+
+    * { font-family: Vazirmatn, sans-serif; }
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    .input-field { transition: all 0.3s ease; }
+    .input-field:focus { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);}    
+    .btn-primary { transition: all 0.3s ease; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);}
+  </style>
 </head>
-<body>
-<div class="box">
-    <h2>🔑 ورود به پنل کاربری</h2>
-    
-    {# نمایش پیام‌ها (اخطار یا موفقیت) #}
-    {% if messages %}
-        {% for msg in messages %}
-            <div class="message-box {% if 'error' in msg.tags %}message-error{% else %}message-success{% endif %}">
-                {{ msg }}
-            </div>
+
+<body class="h-full">
+  <div class="w-full h-full flex items-center justify-center p-6"
+       style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
+
+    <div class="glass-effect rounded-3xl p-8 w-full max-w-md">
+
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4"
+             style="background: #f59e0b;">
+          <svg class="w-10 h-10" style="color: #ffffff;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+            </path>
+          </svg>
+        </div>
+
+        <h1 class="font-bold mb-2" style="color: #1f2937; font-size: 28px;">ربات خرید و فروش طلا</h1>
+        <p style="color: #1f2937; opacity: 0.7;">با شماره تماس و رمز عبور وارد شوید</p>
+      </div>
+      
+      {% if messages %}
+        {% for message in messages %}
+          <div class="p-3 mb-4 text-sm rounded-lg {% if message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-green-100 text-green-800{% endif %}" role="alert">
+            {{ message }}
+          </div>
         {% endfor %}
-    {% endif %}
+      {% endif %}
 
-    <div class="info">
-        لطفاً شماره موبایل خود را وارد نمایید تا کد تأیید برای شما ارسال شود.
+
+      <form method="POST" class="space-y-5">
+        {% csrf_token %} <div>
+          <label for="phone" class="block mb-2 font-semibold" style="color: #1f2937;">شماره تماس</label>
+          <input type="tel" id="phone" name="phone_number"
+                 class="input-field w-full px-4 py-3 rounded-xl border-2 outline-none"
+                 style="border-color: #f59e0b40; background: white;"
+                 placeholder="09123456789" maxlength="11" required>
+        </div>
+        
+        <div>
+          <label for="password" class="block mb-2 font-semibold" style="color: #1f2937;">رمز عبور</label>
+          <input type="password" id="password" name="password"
+                 class="input-field w-full px-4 py-3 rounded-xl border-2 outline-none"
+                 style="border-color: #f59e0b40; background: white;"
+                 placeholder="رمز عبور خود را وارد کنید" required>
+        </div>
+
+        <button type="submit"
+                class="btn-primary w-full py-3 rounded-xl font-bold"
+                style="background: #f59e0b; color: white;">
+          ورود به سیستم
+        </button>
+      </form>
+      
+     
+
     </div>
+  </div>
 
-    <form method="post">
-        {% csrf_token %}
-        <input 
-            type="text" 
-            name="phone_number" 
-            placeholder="مثال: 09123456789" 
-            maxlength="11" 
-            pattern="09[0-9]{9}" 
-            title="لطفاً یک شماره موبایل معتبر 11 رقمی وارد کنید (شروع با 09)"
-            required
-            autofocus
-            style="direction: ltr;"
-        >
-        <button type="submit" class="btn-submit">ارسال کد تأیید</button>
-    </form>
-</div>
+  <script>
+    // تضمین می‌کند که فقط اعداد در فیلد شماره تماس وارد شود
+    const phoneInput = document.getElementById("phone");
+    phoneInput.addEventListener("input", e => {
+      e.target.value = e.target.value.replace(/[^0-9]/g, "");
+    });
+  </script>
 </body>
 </html>

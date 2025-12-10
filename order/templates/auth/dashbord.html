@@ -1,0 +1,241 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ربات طلا</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { 
+      font-family: 'Vazirmatn', sans-serif; 
+      background: linear-gradient(135deg, #fef3c7, #fde68a);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .glass { 
+      background: rgba(255,255,255,0.97); 
+      backdrop-filter: blur(12px); 
+      border: 1px solid rgba(255,255,255,0.4); 
+      box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+      border-radius: 2rem;
+    }
+    .input-focus:focus { 
+      outline: none; 
+      border-color: #f59e0b; 
+      box-shadow: 0 0 0 3px rgba(251,146,60,0.2);
+    }
+    .btn-hover:hover { 
+      transform: translateY(-3px); 
+      box-shadow: 0 12px 28px rgba(251,146,60,0.4);
+    }
+  </style>
+</head>
+<body>
+  <!-- نمایش پیام‌های موفقیت و خطا - بالای صفحه و وسط -->
+{% if messages %}
+  <div class="fixed top-6 left-1/2 transform -translate-x-1/2 z-50 space-y-4 w-full max-w-2xl px-4">
+    {% for message in messages %}
+      <div class="
+        glass rounded-2xl p-6 shadow-2xl border-l-8
+        {% if message.tags == 'error' %}border-red-500 bg-red-50/95 backdrop-blur-lg animate-pulse{% else %}border-green-500 bg-green-50/95 backdrop-blur-lg animate-bounce{% endif %}
+        animate__animated animate__fadeInDown
+      ">
+        <div class="flex items-center gap-5">
+          {% if message.tags == 'error' %}
+            <svg class="w-12 h-12 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          {% else %}
+            <svg class="w-12 h-12 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          {% endif %}
+
+          <div class="flex-1">
+            <p class="text-xl font-bold {% if message.tags == 'error' %}text-red-800{% else %}text-green-800{% endif %}">
+              {% if message.tags == 'error' %}خطا رخ داد{% else %}عملیات موفق{% endif %}
+            </p>
+            <p class="text-lg {% if message.tags == 'error' %}text-red-700{% else %}text-green-700{% endif %} mt-1">
+              {{ message }}
+            </p>
+          </div>
+
+          <!-- دکمه بستن -->
+          <button onclick="this.parentElement.parentElement.remove()" 
+                  class="text-gray-500 hover:text-gray-700 transition">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- خودکار حذف پیام بعد از 6 ثانیه -->
+  <script>
+    setTimeout(() => {
+      document.querySelectorAll('.animate__fadeInDown').forEach(el => {
+        el.classList.remove('animate__fadeInDown');
+        el.classList.add('animate__fadeOutUp');
+        setTimeout(() => el.remove(), 800);
+      });
+    }, 6000);
+  </script>
+{% endif %}
+
+  <!-- عرض بزرگ: max-w-4xl = حدود ۹۰٪ صفحه -->
+  <div class="w-full max-w-4xl mx-auto space-y-8">
+
+    <!-- هدر -->
+   <div class="glass p-8 text-center rounded-3xl">
+  <p class="text-sm text-gray-500 text-center mt-2">
+    فعالیت ربات ملزم به لاگین در سامانه خاکپور است
+  </p>
+
+  <!-- تغییر مهم: به جای href خارجی، از url داخلی استفاده کن -->
+  <a href="{% url 'login_khakpour' %}" 
+     class="inline-block bg-gradient-to-r from-amber-500 to-orange-600 text-white px-10 py-4 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl transition mb-6">
+    لاگین در سامانه خاکپور
+  </a>
+
+  <h1 class="text-4xl font-bold text-gray-800">ربات طلا</h1>
+  <p class="text-2xl text-amber-700 font-medium mt-2">
+    {{ request.user.get_full_name|default:request.user.phone_number }}
+  </p>
+</div>
+
+    <!-- فرم اصلی - عریض و کشیده -->
+    <div class="glass p-10 space-y-8 rounded-3xl">
+      <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">ایجاد ربات جدید</h2>
+
+      <form method="POST" action="{% url 'order_input' %}" class="space-y-8">
+        {% csrf_token %}
+
+        <!-- نوع ربات -->
+        <div>
+          <label class="block text-lg font-bold text-gray-700 mb-3 text-center">نوع ربات</label>
+          <select name="bot_type" class="w-full px-8 py-5 rounded-2xl border-2 border-amber-300/60 input-focus text-lg font-medium text-center" required>
+            <option value="buy">خرید</option>
+            <option value="sell">فروش</option>
+          </select>
+        </div>
+
+        <!-- محصول -->
+        <div>
+          <label class="block text-lg font-bold text-gray-700 mb-3 text-center">محصول</label>
+          <select name="product" class="w-full px-8 py-5 rounded-2xl border-2 border-amber-300/60 input-focus text-lg font-medium text-center" required>
+            <option value="naghd-farda">نقد فردا</option>
+            <option value="naghd-pasfarda">نقد پس‌فردا</option>
+          </select>
+        </div>
+
+        <!-- قیمت هدف -->
+        <div>
+          <label class="block text-lg font-bold text-gray-700 mb-3 text-center">قیمت هدف(تومان)(سوت طلا)</label>
+          <input type="number" name="target_price" placeholder="مثل ۲,۴۵۰,۰۰۰"
+                 class="w-full px-8 py-5 rounded-2xl border-2 border-amber-300/60 input-focus text-lg text-center placeholder-gray-400" required>
+        </div>
+
+        <!-- وزن -->
+        <div>
+          <label class="block text-lg font-bold text-gray-700 mb-3 text-center">وزن (گرم)</label>
+          <input type="number" step="0.0001" min="0.0001" name="weight" placeholder="مثل ۱۰.۵"
+                 class="w-full px-8 py-5 rounded-2xl border-2 border-amber-300/60 input-focus text-lg text-center placeholder-gray-400" required>
+        </div>
+
+        <!-- مدت زمان -->
+        <div>
+          <label class="block text-lg font-bold text-gray-700 mb-3 text-center">مدت زمان فعالیت ربات(ساعت)</label>
+          <input type="number" name="dedline" value="1" min="1"
+                 class="w-full px-8 py-5 rounded-2xl border-2 border-amber-300/60 input-focus text-lg text-center">
+          <p class="text-sm text-gray-500 text-center mt-2">پیش‌فرض: ۲۴ ساعت</p>
+        </div>
+
+        <!-- فعال‌سازی -->
+        <div class="text-center pt-6">
+          <label class="inline-flex items-center gap-4 cursor-pointer bg-green-50 px-16 py-6 rounded-2xl border-4 border-green-400">
+            <input type="checkbox" name="enable_bot" checked class="w-8 h-8 text-green-600">
+            <span class="text-xl font-bold text-green-700">اطمینان از فعالسازی ربات</span>
+          </label>
+        </div>
+
+        <!-- دکمه ثبت -->
+        <div class="pt-8">
+          <button type="submit"
+                  class="w-full bg-gradient-to-r from-amber-500 to-orange-600 text-white py-7 rounded-2xl font-bold text-2xl btn-hover shadow-2xl">
+            ثبت و فعال‌سازی ربات
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ربات‌های فعال -->
+    <div class="glass p-10 space-y-8 rounded-3xl">
+      <h3 class="text-2xl font-bold text-center text-gray-800 mb-6">ربات‌های فعال</h3>
+
+      {% if status.enabled_buy or status.enabled_sell %}
+        {% if status.enabled_buy %}
+        <div class="bg-green-50 border-r-6 border-green-600 rounded-2xl p-8">
+          <div class="flex items-center gap-4 mb-4">
+            <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 10l7-7m0 0l7 7"></path>
+            </svg>
+            <h4 class="text-xl font-bold text-green-700">ربات خرید فعال</h4>
+          </div>
+          <div class="grid grid-cols-3 gap-6 text-lg">
+            <div><strong>وزن:</strong> {{ status.buy_weight }} گرم</div>
+            <div><strong>قیمت:</strong> {{ status.target_price_buy }} تومان</div>
+            <div><strong>انقضا:</strong> {{ status.buy_exp_time }}</div>
+          </div>
+          <form method="POST" action="{% url 'order_input' %}" class="mt-6">
+            {% csrf_token %}
+            <input type="hidden" name="stop_bot" value="buy">
+            <button type="submit" class="w-full bg-red-600 text-white py-5 rounded-xl font-bold text-lg hover:bg-red-700 transition">
+              غیرفعال کردن ربات خرید
+            </button>
+          </form>
+        </div>
+        {% endif %}
+
+        {% if status.enabled_sell %}
+        <div class="bg-red-50 border-l-6 border-red-600 rounded-2xl p-8">
+          <div class="flex items-center gap-4 mb-4">
+            <svg class="w-12 h-12 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 14l-7 7m0 0l-7-7"></path>
+            </svg>
+            <h4 class="text-xl font-bold text-red-700">ربات فروش فعال</h4>
+          </div>
+          <div class="grid grid-cols-3 gap-6 text-lg">
+            <div><strong>وزن:</strong> {{ status.sell_weight }} گرم</div>
+            <div><strong>قیمت:</strong> {{ status.target_price_sell }} تومان</div>
+            <div><strong>انقضا:</strong> {{ status.sell_exp_time }}</div>
+          </div>
+          <form method="POST" action="{% url 'order_input' %}" class="mt-6">
+            {% csrf_token %}
+            <input type="hidden" name="stop_bot" value="sell">
+            <button type="submit" class="w-full bg-red-600 text-white py-5 rounded-xl font-bold text-lg hover:bg-red-700 transition">
+              غیرفعال کردن ربات فروش
+            </button>
+          </form>
+        </div>
+        {% endif %}
+      {% else %}
+        <div class="text-center py-16">
+          <svg class="w-20 h-20 mx-auto text-gray-400 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+          </svg>
+          <p class="text-xl text-gray-600 font-medium">ربات فعالی وجود ندارد</p>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+</body>
+</html>

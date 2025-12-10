@@ -1,14 +1,30 @@
-
-
 from pathlib import Path
 import socket
 import redis
 BASE_DIR = Path(__file__).resolve().parent.parent
-
+STATIC_URL = '/static/'
+LOGIN_URL = '/login/'
 SECRET_KEY = 'django-insecure-nl)6!suh1tuyi5vy^g$8pzswkwkkcsio#_t1&nm2pcgxkgq6^)'
 DEBUG = True
-
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 ALLOWED_HOSTS = ['app-rxg.ir', "www.app-rxg.ir", 'localhost','127.0.0.1','185.10.75.158', '94.182.155.166']
+
+
+# ✅ مدل کاربر سفارشی
+AUTH_USER_MODEL = 'order.User'
+
+# ✅ اضافه کنید - برای احراز هویت
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+
+
+LOGIN_URL = '/login/'
+#LOGIN_REDIRECT_URL = '/'  # ✅ اضافه کنید
+
+
+
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -101,7 +117,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 
-
+AUTH_USER_MODEL = 'order.User'
 
 
 REDIS_PRICE = redis.Redis(

@@ -2,14 +2,20 @@
 import requests
 import logging
 import redis
+from django.utils import timezone
+import time
 
 log = logging.getLogger("order_sender")
 
-# ───── تنظیمات ثابت API ─────
+# تنظیمات ثابت API
 API_URL = "https://api.khakpourgold.com/order"
 PRODUCT_ID = "e04c3186-be34-4669-9e0a-c4cec1380080"  # آبشده کارت
+PRODUCT_ID_NAGHD = "aa96c755-c862-4464-bf80-04654b71cd58"  # نقد فردا
 
-# اتصال به redis-cache
+# پروکسی (در صورت نیاز)
+PROXIES = None
+
+# اتصال به Redis
 redis_cache = redis.Redis(
     host='redis-cache',
     port=6379,
@@ -19,111 +25,60 @@ redis_cache = redis.Redis(
     retry_on_timeout=True
 )
 
-# کلیدهای ردیس — همه یکسان و منظم
+# کلیدهای عمومی
 TOKEN_KEY = "auto_order:access_token"
+ACTIVE_ORDERS_SET = "auto_orders:active"
 
-WEIGHT_KEY_BUY = "auto_order:weight_buy"
-WEIGHT_KEY_SELL = "auto_order:weight_sell"
-
-ENABLED_KEY_BUY = "auto_order:enabled_buy"
-ENABLED_KEY_SELL = "auto_order:enabled_sell"
-
-# پروکسی (در صورت نیاز)
-
-
-PROXIES = None  # یا فعالش کن: {"http": "...", "https": "..."}
-
-def get_token_from_redis():
+def get_token():
     token = redis_cache.get(TOKEN_KEY)
     if not token:
         log.error("توکن در ردیس پیدا نشد!")
         return None
     return token
 
-def get_weight_from_redis():
-    weight_raw = redis_cache.get(WEIGHT_KEY)
-    if not weight_raw:
-        log.error("وزن در ردیس پیدا نشد!")
-        return None
-    try:
-        return float(weight_raw)
-    except ValueError:
-        log.error("وزن در ردیس نامعتبر است!")
-        return None
-def disable_auto_order(side: str):
-    """غیرفعال کردن و پاک کردن تنظیمات فقط برای یک سمت (buy یا sell)"""
-    if side == "buy":
-        redis_cache.set(ENABLED_KEY_BUY, "false")
-        redis_cache.delete(WEIGHT_KEY_BUY)
-        redis_cache.delete(TARGET_KEY_BUY)
-        log.info("ربات خرید خودکار غیرفعال و تنظیمات پاک شد.")
-    elif side == "sell":
-        redis_cache.set(ENABLED_KEY_SELL, "false")
-        redis_cache.delete(WEIGHT_KEY_SELL)
-        redis_cache.delete(TARGET_KEY_SELL)
-        log.info("ربات فروش خودکار غیرفعال و تنظیمات پاک شد.")
+def remove_order_from_redis(order_id: str):
+    """حذف یک سفارش خاص از Redis (هم Hash و هم از SET)"""
+    redis_cache.srem(ACTIVE_ORDERS_SET, order_id)
+    redis_cache.delete(order_id)
+    log.info(f"سفارش {order_id} از Redis حذف شد.")
 
-
-
-        def send_auto_order(current_price: int, side: str = "buy", weight: float = None):
+def send_auto_order(price: int, side: str, weight: float, product: str, order_id: str):
     """
-    ارسال سفارش خودکار خرید یا فروش
-    :param current_price: قیمت لحظه‌ای بازار
-    :param side: "buy" یا "sell"
-    :param weight: وزن (اگر None باشه از ردیس می‌خونه)
+    ارسال سفارش خودکار — فقط برای یک سفارش خاص
+    :param price: قیمت لحظه‌ای
+    :param side: 'buy' یا 'sell'
+    :param weight: وزن
+    :param product: 'naghd-farda' یا 'naghd-pasfarda'
+    :param order_id: آیدی منحصربه‌فرد سفارش در Redis
     :return: (success: bool, message)
     """
     if side not in ["buy", "sell"]:
-        return False, "side باید buy یا sell باشد"
+        remove_order_from_redis(order_id)
+        return False, "نوع سفارش نامعتبر"
 
-    # ───── تعیین کلیدها بر اساس سمت ─────
-    enabled_key = ENABLED_KEY_BUY if side == "buy" else ENABLED_KEY_SELL
-    weight_key = WEIGHT_KEY_BUY if side == "buy" else WEIGHT_KEY_SELL
-
-    # 1. چک کردن فعال بودن ربات (برای این سمت)
-    if redis_cache.get(enabled_key) != "true":
-        log.warning(f"سفارش {side.upper()} نادیده گرفته شد: ربات غیرفعال است")
-        return False, f"ربات {side} غیرفعال است"
-
-    # 2. توکن
-    token = get_token_from_redis()
+    token = get_token()
     if not token:
-        disable_auto_order(side)
-        return False, "توکن نامعتبر"
+        remove_order_from_redis(order_id)
+        return False, "توکن لاگین وجود ندارد"
 
-    # 3. وزن — اولویت با پارامتر، در غیر اینصورت از ردیس
-    if weight is None:
-        weight_raw = redis_cache.get(weight_key)
-        if not weight_raw:
-            log.error(f"وزن {side} در ردیس موجود نیست")
-            disable_auto_order(side)
-            return False, "وزن مشخص نشده"
-        try:
-            weight = float(weight_raw)
-        except ValueError:
-            log.error(f"وزن {side} نامعتبر است: {weight_raw}")
-            disable_auto_order(side)
-            return False, "وزن نامعتبر"
     if weight <= 0:
-        log.error("وزن باید بزرگتر از صفر باشد")
+        remove_order_from_redis(order_id)
         return False, "وزن نامعتبر"
 
-    # 4. محاسبه مبلغ کل
-    total_price = int(weight * current_price)
+    total_price = int(weight * price)
 
-    # 5. پیلود داینامیک
+    # پیلود داینامیک
     payload = {
-        "side": side,  # اینجا مهم است: buy یا sell
+        "side": side,
         "type": "market_price",
-        "price": str(current_price),
+        "price": str(price),
         "quantity": weight,
         "total_price": total_price,
-        "product_id": PRODUCT_ID,
+        "product_id": PRODUCT_ID_NAGHD,
         "input": "unit",
-        "note": f"سفارش خودکار {side.upper()} - وزن: {weight:.6f} گرم - قیمت واحد: {current_price:,} تومان",
+        "note": f"سفارش خودکار {side.upper()} | محصول: {product} | وزن: {weight:.6f} گرم | قیمت: {price:,} تومان | زمان: {timezone.now().strftime('%H:%M:%S')}",
     }
 
-    # 6. هدرها
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:143.0) Gecko/20100101 Firefox/143.0",
         "Accept": "application/json, text/plain, */*",
@@ -138,8 +93,7 @@ def disable_auto_order(side: str):
     }
 
     try:
-        log.info(f"در حال ارسال سفارش خودکار {side.upper()} به API...")
-        log.info(f"وزن: {weight:.6f} گرم | قیمت: {current_price:,} | مبلغ کل: {total_price:,} تومان")
+        log.info(f"ارسال سفارش {order_id} | {side.upper()} | {product} | وزن: {weight:.6f} گرم | قیمت: {price:,}")
 
         response = requests.post(
             API_URL,
@@ -152,31 +106,32 @@ def disable_auto_order(side: str):
 
         if response.status_code in (200, 201):
             result = response.json()
-            message = result.get("message", "موفقیت‌آمیز")
-            log.info(f"سفارش {side.upper()} با موفقیت ارسال شد!")
-            log.info(f"پیام سرور: {message}")
-
-            # غیرفعال کردن فقط این سمت
-            disable_auto_order(side)
+            message = result.get("message", "سفارش با موفقیت ثبت شد")
+            log.info(f"سفارش {order_id} با موفقیت ارسال شد! پیام سرور: {message}")
 
             # بوق پیروزی!
-            for _ in range(50):
+            for _ in range(30):
                 print("\a", end="", flush=True)
                 time.sleep(0.08)
 
+            # حذف سفارش از Redis
+            remove_order_from_redis(order_id)
             return True, message
 
         else:
             error_text = response.text or response.reason
-            log.error(f"خطا در ارسال سفارش {side.upper()}: {response.status_code} — {error_text}")
-            disable_auto_order(side)
+            log.error(f"خطا در ارسال سفارش {order_id}: {response.status_code} — {error_text}")
+
+            # حتی اگر خطا داد، سفارش رو حذف کن (جلوگیری از ارسال دوباره)
+            remove_order_from_redis(order_id)
             return False, f"خطا {response.status_code}: {error_text}"
 
     except requests.exceptions.RequestException as e:
-        log.error(f"خطای شبکه در ارسال سفارش {side.upper()}: {e}")
-        disable_auto_order(side)
+        log.error(f"خطای شبکه در سفارش {order_id}: {e}")
+        remove_order_from_redis(order_id)
         return False, f"خطای شبکه: {str(e)}"
+
     except Exception as e:
-        log.error(f"خطای غیرمنتظره در سفارش {side.upper()}: {e}")
-        disable_auto_order(side)
+        log.error(f"خطای غیرمنتظره در سفارش {order_id}: {e}")
+        remove_order_from_redis(order_id)
         return False, str(e)
