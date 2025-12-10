@@ -120,8 +120,8 @@ LOGIN_REDIRECT_URL = '/order_input/'  # بعد از لاگین بره داشبو
 LOGOUT_REDIRECT_URL = '/login/'
 
 # ───── امنیت کوکی‌ها و CSRF (برای HTTPS و داکر) ─────
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+#SESSION_COOKIE_SECURE = not DEBUG
+#CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = False  # برای جاوااسکریپت نیازه
 SESSION_COOKIE_SAMESITE = 'Lax'
 
