@@ -6,6 +6,11 @@ import redis
 # ───── مسیرها ─────
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+CSRF_COOKIE_SECURE = False        # حتماً False باشه (چون HTTP هستی)
+SESSION_COOKIE_SECURE = False      # حتماً False
+SECURE_SSL_REDIRECT = False   
+
+
 # ───── امنیت و سرور ─────
 SECRET_KEY = os.getenv(
     'DJANGO_SECRET_KEY',
