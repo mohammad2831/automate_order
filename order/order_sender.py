@@ -76,7 +76,7 @@ def send_auto_order(price: int, side: str, weight: float, product: str, order_id
         "total_price": total_price,
         "product_id": PRODUCT_ID_NAGHD,
         "input": "unit",
-        "note": f"سفارش خودکار {side.upper()} | محصول: {product} | وزن: {weight:.6f} گرم | قیمت: {price:,} تومان | زمان: {timezone.now().strftime('%H:%M:%S')}",
+        "note": f"",
     }
 
     headers = {

@@ -1,5 +1,4 @@
 # order/price_listener.py
-import threading
 import time
 from datetime import datetime
 import logging
@@ -13,10 +12,6 @@ logging.basicConfig(
     datefmt='%H:%M:%S'
 )
 log = logging.getLogger("AUTO_ORDER")
-
-# فقط یک ترد در کل برنامه
-_monitor_thread = None
-_monitor_lock = threading.Lock()
 
 # اتصال به Redis
 redis_price = redis.Redis(host='redis-price', port=6379, db=0, decode_responses=True)
@@ -33,7 +28,11 @@ PRICE_KEYS = {
 ACTIVE_ORDERS_SET = "auto_orders:active"
 TOKEN_KEY = "auto_order:access_token"
 
+# کلید قفل روی هر سفارش
+ORDER_LOCK_KEY_TEMPLATE = "auto_orders:lock:{}"
+
 from .order_sender import send_auto_order
+
 
 def get_current_price(product: str, side: str):
     key = PRICE_KEYS.get((product, side))
@@ -46,6 +45,7 @@ def get_current_price(product: str, side: str):
         return int(float(str(raw).replace(",", "").strip()))
     except:
         return None
+
 
 def log_status_report():
     """هر چند ثانیه یک گزارش کامل از وضعیت قیمت‌ها و ربات‌ها چاپ کنه"""
@@ -64,10 +64,10 @@ def log_status_report():
     log.info("═" * 70)
     log.info(f" وضعیت قیمت‌ها | {now}")
     log.info("─" * 70)
-    log.info(f" نقد فردا خرید  : {prices['naghd-farda-buy']:,} تومان" if prices['naghd-farda-buy'] else " نقد فردا خرید  : ناموجود")
-    log.info(f" نقد فردا فروش  : {prices['naghd-farda-sell']:,} تومان" if prices['naghd-farda-sell'] else " نقد فردا فروش  : ناموجود")
-    log.info(f" نقد پس‌فردا خرید: {prices['naghd-pasfarda-buy']:,} تومان" if prices['naghd-pasfarda-buy'] else " نقد پس‌فردا خرید: ناموجود")
-    log.info(f" نقد پس‌فردا فروش: {prices['naghd-pasfarda-sell']:,} تومان" if prices['naghd-pasfarda-sell'] else " نقد پس‌فردا فروش: ناموجود")
+    log.info(f" نقد فردا خرید  : {prices['naghd-farda-buy']:,} تومان" if prices.get('naghd-farda-buy') else " نقد فردا خرید  : ناموجود")
+    log.info(f" نقد فردا فروش  : {prices['naghd-farda-sell']:,} تومان" if prices.get('naghd-farda-sell') else " نقد فردا فروش  : ناموجود")
+    log.info(f" نقد پس‌فردا خرید: {prices['naghd-pasfarda-buy']:,} تومان" if prices.get('naghd-pasfarda-buy') else " نقد پس‌فردا خرید: ناموجود")
+    log.info(f" نقد پس‌فردا فروش: {prices['naghd-pasfarda-sell']:,} تومان" if prices.get('naghd-pasfarda-sell') else " نقد پس‌فردا فروش: ناموجود")
     log.info("─" * 70)
 
     # ربات‌های فعال
@@ -82,8 +82,8 @@ def log_status_report():
             if not data:
                 continue
             try:
-                side = "خرید" if data['side'] == 'buy' else "فروش"
-                product = "نقد فردا" if data['product'] == 'naghd-farda' else "نقد پس‌فردا"
+                side_label = "خرید" if data['side'] == 'buy' else "فروش"
+                product_label = "نقد فردا" if data['product'] == 'naghd-farda' else "نقد پس‌فردا"
                 target = int(float(data['target_price']))
                 weight = float(data['weight'])
                 current = get_current_price(data['product'], data['side'])
@@ -96,14 +96,18 @@ def log_status_report():
                     else:
                         status = f"{target:,} ← {current:,}"
 
-                log.info(f" {side} | {product} | وزن: {weight:.4f} گرم | هدف: {target:,} | فعلی: {current or '—'} | {status} | {order_id[-8:]}")
-            except:
+                log.info(
+                    f" {side_label} | {product_label} | وزن: {weight:.4f} گرم | "
+                    f"هدف: {target:,} | فعلی: {current or '—'} | {status} | {order_id[-8:]}"
+                )
+            except Exception:
                 log.warning(f" خطا در خواندن سفارش {order_id}")
 
     log.info("═" * 70)
 
+
 def price_watcher():
-    log.info("ناظر حرفه‌ای ربات معاملاتی شروع شد — لاگ کامل و زیبا")
+    log.info("ناظر حرفه‌ای ربات معاملاتی شروع شد")
 
     last_report = 0  # برای گزارش هر ۵ ثانیه
 
@@ -145,12 +149,23 @@ def price_watcher():
                     if current_price is None:
                         continue
 
+                    # منطق تریگر (بر اساس نیاز خودت تغییر بده)
                     triggered = (
-                        (side == "buy" and current_price >= target_price) or
-                        (side == "sell" and current_price <= target_price)
+                        (side == "buy" and current_price <= target_price) or
+                        (side == "sell" and current_price >= target_price)
                     )
 
                     if triggered:
+                        # ─── قفل Redis روی این سفارش ───
+                        lock_key = ORDER_LOCK_KEY_TEMPLATE.format(order_id)
+                        # فقط اگر کلید قبلاً وجود نداشته باشد، قفل بگیر
+                        got_lock = redis_cache.set(lock_key, "1", nx=True, ex=60)
+
+                        if not got_lock:
+                            # یعنی یک ناظر دیگر قبلاً این سفارش را قفل کرده
+                            log.info(f"سفارش {order_id} قبلاً قفل شده؛ این ناظر رد می‌کند.")
+                            continue
+
                         log.info(f"هدف رسید! ارسال سفارش {order_id}")
 
                         success, msg = send_auto_order(
@@ -190,14 +205,3 @@ def price_watcher():
         except Exception as e:
             log.critical(f"خطای بحرانی: {e}")
             time.sleep(10)
-
-def start_monitor_once():
-    global _monitor_thread
-    with _monitor_lock:
-        if _monitor_thread is None or not _monitor_thread.is_alive():
-            _monitor_thread = threading.Thread(target=price_watcher, daemon=True)
-            _monitor_thread.start()
-            log.info("ناظر با لاگ حرفه‌ای فعال شد — هر ۵ ثانیه گزارش کامل")
-
-# شروع خودکار
-start_monitor_once()

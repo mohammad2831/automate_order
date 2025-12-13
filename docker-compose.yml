@@ -1,28 +1,31 @@
-# automate_order_module/docker-compose.yml
-
 services:
   web:
     build: .
     container_name: auto_order_bot_web
     restart: unless-stopped
     ports:
-      - "8002:8000"                  # پورت 8002 برای این پروژه
+      - "8002:8000"           # وب روی 8002 بیرون
     volumes:
       - .:/app
     environment:
-      - DEBUG=True
+      - DJANGO_DEBUG=True     # چون در settings از DJANGO_DEBUG می‌خوانی
       - DOCKER_ENV=1
     networks:
       - redis_net
 
-  # اگر بخوای سلری هم داشته باشی (اختیاری — بعداً اضافه می‌کنیم)
-  # celery:
-  #   build: .
-  #   command: celery -A automate_order_madule worker --loglevel=info
-  #   volumes:
-  #     - .:/app
-  #   networks:
-  #     - redis_net
+  price_watcher:
+    build: .
+    container_name: auto_order_bot_price_watcher
+    restart: unless-stopped
+    # ناظر فقط کامندش فرق می‌کند:
+    command: python manage.py run_price_watcher
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_DEBUG=True
+      - DOCKER_ENV=1
+    networks:
+      - redis_net
 
 networks:
   redis_net:

@@ -10,7 +10,7 @@ class OrderConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'order'                  # اسم اپت
     verbose_name = "سفارش خودکار"
-
+'''
     def ready(self):
         """
         این متد فقط وقتی که همه اپ‌ها لود شدن اجرا میشه
@@ -32,3 +32,5 @@ class OrderConfig(AppConfig):
                 import logging
                 logger = logging.getLogger(__name__)
                 logger.warning(f"خطا در شروع ناظر قیمت: {e}")
+
+'''
