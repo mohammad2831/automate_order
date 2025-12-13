@@ -151,8 +151,8 @@ def price_watcher():
 
                     # منطق تریگر (بر اساس نیاز خودت تغییر بده)
                     triggered = (
-                        (side == "buy" and current_price <= target_price) or
-                        (side == "sell" and current_price >= target_price)
+                        (side == "buy" and current_price >= target_price) or
+                        (side == "sell" and current_price <= target_price)
                     )
 
                     if triggered:
